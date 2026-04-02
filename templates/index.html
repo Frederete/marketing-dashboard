@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketing Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-left">
+    <h1>📊 Marketing Dashboard</h1>
+    <span class="sync-badge" id="syncBadge">Carregando...</span>
+  </div>
+  <div class="header-right">
+    <div class="date-filters">
+      <input type="date" id="dateStart" placeholder="Data início" />
+      <span>→</span>
+      <input type="date" id="dateEnd" placeholder="Data fim" />
+      <select id="campaignFilter">
+        <option value="">Todas as campanhas</option>
+      </select>
+      <button class="btn btn-secondary" onclick="applyFilters()">Filtrar</button>
+      <button class="btn btn-secondary" onclick="clearFilters()">Limpar</button>
+    </div>
+    <button class="btn btn-primary" onclick="forceRefresh()" id="refreshBtn">
+      ↻ Atualizar
+    </button>
+  </div>
+</header>
+
+<!-- ── KPI Cards ───────────────────────────────────────────────────────────── -->
+<section class="kpi-section">
+  <div class="kpi-card" id="kpi-spend">
+    <div class="kpi-label">Gasto Total</div>
+    <div class="kpi-value" id="val-spend">—</div>
+  </div>
+  <div class="kpi-card" id="kpi-revenue">
+    <div class="kpi-label">Receita</div>
+    <div class="kpi-value" id="val-revenue">—</div>
+  </div>
+  <div class="kpi-card highlight" id="kpi-roas">
+    <div class="kpi-label">ROAS</div>
+    <div class="kpi-value" id="val-roas">—</div>
+  </div>
+  <div class="kpi-card" id="kpi-leads">
+    <div class="kpi-label">Leads</div>
+    <div class="kpi-value" id="val-leads">—</div>
+  </div>
+  <div class="kpi-card" id="kpi-cpl">
+    <div class="kpi-label">CPL</div>
+    <div class="kpi-value" id="val-cpl">—</div>
+  </div>
+  <div class="kpi-card" id="kpi-appts">
+    <div class="kpi-label">Agendamentos</div>
+    <div class="kpi-value" id="val-appts">—</div>
+  </div>
+  <div class="kpi-card" id="kpi-sales">
+    <div class="kpi-label">Vendas</div>
+    <div class="kpi-value" id="val-sales">—</div>
+  </div>
+  <div class="kpi-card" id="kpi-cac">
+    <div class="kpi-label">CAC</div>
+    <div class="kpi-value" id="val-cac">—</div>
+  </div>
+</section>
+
+<!-- ── Main Grid ───────────────────────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Performance Table -->
+  <section class="card table-section full-width">
+    <div class="card-header">
+      <h2>Performance por Campanha / Conjunto / Criativo</h2>
+      <div class="table-controls">
+        <input type="text" id="tableSearch" placeholder="Buscar..." oninput="filterTable()" />
+        <select id="levelFilter" onchange="if(_currentData) renderTableForLevel(_currentData); else filterTable()">
+          <option value="all">Todos os níveis</option>
+          <option value="campaign">Campanhas</option>
+          <option value="adset">Conjuntos</option>
+          <option value="creative">Criativos</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="expandAll()">Expandir tudo</button>
+        <button class="btn btn-secondary btn-sm" onclick="collapseAll()">Recolher</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table id="perfTable">
+        <thead>
+          <tr>
+            <th class="col-name sortable" data-col="name" onclick="sortTable('name')">
+              Nome <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-spend sortable" data-col="spend" onclick="sortTable('spend')">
+              Gasto <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-leads sortable" data-col="leads" onclick="sortTable('leads')">
+              Leads <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-cpl sortable" data-col="cpl" onclick="sortTable('cpl')">
+              CPL <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-ctr sortable" data-col="ctr" onclick="sortTable('ctr')">
+              CTR <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-cvr sortable" data-col="conversion_rate" onclick="sortTable('conversion_rate')">
+              CVR <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-appts sortable" data-col="appointments" onclick="sortTable('appointments')">
+              Agend. <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-sales sortable" data-col="sales" onclick="sortTable('sales')">
+              Vendas <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-roas sortable" data-col="roas" onclick="sortTable('roas')">
+              ROAS <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-cac sortable" data-col="cac" onclick="sortTable('cac')">
+              CAC <span class="sort-icon">⇅</span>
+            </th>
+            <th class="col-score sortable" data-col="performance_score" onclick="sortTable('performance_score')">
+              Score <span class="sort-icon">⇅</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="perfTableBody">
+          <tr><td colspan="11" class="loading-row">Carregando dados...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Creative Rankings -->
+  <section class="card rankings-section">
+    <div class="card-header">
+      <h2>🏆 Ranking de Criativos</h2>
+    </div>
+    <div class="rankings-grid">
+      <div>
+        <h3 class="rank-title top">Top 5 — Melhores</h3>
+        <div id="top5List" class="rank-list"></div>
+      </div>
+      <div>
+        <h3 class="rank-title bottom">Top 5 — Piores</h3>
+        <div id="bottom5List" class="rank-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Chart -->
+  <section class="card chart-section">
+    <div class="card-header">
+      <h2>📈 Performance por Campanha</h2>
+      <select id="chartMetric" onchange="renderChart()">
+        <option value="cpl">CPL</option>
+        <option value="roas">ROAS</option>
+        <option value="leads">Leads</option>
+        <option value="ctr">CTR</option>
+        <option value="spend">Gasto</option>
+      </select>
+    </div>
+    <div class="chart-container">
+      <canvas id="perfChart"></canvas>
+    </div>
+  </section>
+
+</div>
+
+<!-- ── Insights Section ────────────────────────────────────────────────────── -->
+<div class="insights-grid">
+
+  <!-- Rule-based Alerts -->
+  <section class="card alerts-section">
+    <div class="card-header">
+      <h2>⚡ Alertas Automáticos</h2>
+      <span class="badge" id="alertCount">0</span>
+    </div>
+    <div id="alertsList" class="alerts-list">
+      <p class="placeholder">Carregando alertas...</p>
+    </div>
+  </section>
+
+  <!-- AI Insights -->
+  <section class="card ai-section">
+    <div class="card-header">
+      <h2>🤖 Insights com IA</h2>
+      <span class="ai-badge" id="aiModel"></span>
+    </div>
+    <div id="aiInsights" class="ai-content">
+      <p class="placeholder">Gerando análise com IA...</p>
+    </div>
+  </section>
+
+  <!-- Recommendations -->
+  <section class="card recs-section">
+    <div class="card-header">
+      <h2>🎯 Recomendações</h2>
+    </div>
+    <div id="recsList" class="recs-list">
+      <p class="placeholder">Calculando recomendações...</p>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer">
+  <span id="footerSync">Última sincronização: —</span>
+  <span>Atualiza automaticamente a cada 30s</span>
+</footer>
+
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
