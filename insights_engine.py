@@ -1,6 +1,6 @@
 """
-Insights Engine — generates AI-powered marketing insights via Claude API,
-plus rule-based alerts that always run regardless of API availability.
+Insights Engine — generates AI-powered marketing insights via Gemini API
+(with Groq as fallback), plus rule-based alerts that always run.
 """
 
 import os
@@ -220,6 +220,37 @@ def generate_ai_insights(data: dict) -> dict:
             break
 
     logger.error("All Gemini models failed. Last error: %s", last_err)
+
+    # ── Groq fallback ─────────────────────────────────────────────────────────
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if groq_key and groq_key != "your_groq_api_key_here":
+        try:
+            from groq import Groq
+            client = Groq(api_key=groq_key)
+            _GROQ_MODELS = [
+                "llama-3.3-70b-versatile",
+                "llama-3.1-8b-instant",
+                "mixtral-8x7b-32768",
+            ]
+            for groq_model in _GROQ_MODELS:
+                try:
+                    completion = client.chat.completions.create(
+                        model=groq_model,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=1500,
+                        temperature=0.7,
+                    )
+                    text = completion.choices[0].message.content
+                    logger.info("Groq fallback succeeded with model %s", groq_model)
+                    return {"text": text, "model": f"groq/{groq_model}", "error": None}
+                except Exception as groq_err:
+                    logger.warning("Groq model %s failed: %s", groq_model, groq_err)
+                    continue
+        except ImportError:
+            logger.error("groq package not installed — add 'groq' to requirements.txt")
+        except Exception as groq_exc:
+            logger.error("Groq fallback failed: %s", groq_exc)
+
     return {"text": None, "model": None, "error": f"Erro ao gerar insights: {last_err}"}
 
 
