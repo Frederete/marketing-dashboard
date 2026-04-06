@@ -1,13 +1,12 @@
 """
-Insights Engine — generates AI-powered marketing insights via Gemini API
-(with Groq as fallback), plus rule-based alerts that always run.
+Insights Engine — generates AI-powered marketing insights via Groq API,
+plus rule-based alerts that always run regardless of API availability.
 """
 
 import os
 import logging
 from typing import Optional
 
-import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -184,73 +183,49 @@ Seja direto, específico e orientado a decisão. Use dados concretos. Formate co
 
 def generate_ai_insights(data: dict) -> dict:
     """
-    Calls Gemini API to generate strategic insights.
+    Calls Groq API to generate strategic insights.
     Returns {text, model, error} — never raises.
     """
-    api_key = os.getenv("GEMINI_API_KEY", "")
-    if not api_key or api_key == "your_gemini_api_key_here":
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if not groq_key or groq_key == "your_groq_api_key_here":
         return {
             "text":  None,
             "model": None,
-            "error": "GEMINI_API_KEY não configurada. Adicione sua chave no arquivo .env para habilitar insights com IA.",
+            "error": "GROQ_API_KEY não configurada. Adicione sua chave do Groq no Vercel para habilitar insights com IA.",
         }
 
+    prompt = _build_prompt(data)
     _MODELS = [
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-2.0-flash",
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
     ]
 
-    genai.configure(api_key=api_key)
-    prompt = _build_prompt(data)
-    last_err = None
+    try:
+        from groq import Groq
+        client = Groq(api_key=groq_key)
+    except ImportError:
+        return {"text": None, "model": None, "error": "Pacote 'groq' não instalado."}
 
+    last_err = None
     for model_name in _MODELS:
         try:
-            response = genai.GenerativeModel(model_name).generate_content(prompt)
-            return {"text": response.text, "model": model_name, "error": None}
+            completion = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.7,
+            )
+            text = completion.choices[0].message.content
+            logger.info("Groq succeeded with model %s", model_name)
+            return {"text": text, "model": f"groq/{model_name}", "error": None}
         except Exception as e:
             err_str = str(e)
-            logger.warning("Gemini model %s failed: %s", model_name, err_str)
+            logger.warning("Groq model %s failed: %s", model_name, err_str)
             last_err = err_str
-            # Only skip to next model on quota/not-found errors
-            if "429" in err_str or "404" in err_str or "quota" in err_str.lower():
-                continue
-            break
+            continue
 
-    logger.error("All Gemini models failed. Last error: %s", last_err)
-
-    # ── Groq fallback ─────────────────────────────────────────────────────────
-    groq_key = os.getenv("GROQ_API_KEY", "")
-    if groq_key and groq_key != "your_groq_api_key_here":
-        try:
-            from groq import Groq
-            client = Groq(api_key=groq_key)
-            _GROQ_MODELS = [
-                "llama-3.3-70b-versatile",
-                "llama-3.1-8b-instant",
-                "mixtral-8x7b-32768",
-            ]
-            for groq_model in _GROQ_MODELS:
-                try:
-                    completion = client.chat.completions.create(
-                        model=groq_model,
-                        messages=[{"role": "user", "content": prompt}],
-                        max_tokens=1500,
-                        temperature=0.7,
-                    )
-                    text = completion.choices[0].message.content
-                    logger.info("Groq fallback succeeded with model %s", groq_model)
-                    return {"text": text, "model": f"groq/{groq_model}", "error": None}
-                except Exception as groq_err:
-                    logger.warning("Groq model %s failed: %s", groq_model, groq_err)
-                    continue
-        except ImportError:
-            logger.error("groq package not installed — add 'groq' to requirements.txt")
-        except Exception as groq_exc:
-            logger.error("Groq fallback failed: %s", groq_exc)
-
+    logger.error("All Groq models failed. Last error: %s", last_err)
     return {"text": None, "model": None, "error": f"Erro ao gerar insights: {last_err}"}
 
 
