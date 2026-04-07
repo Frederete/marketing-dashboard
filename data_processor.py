@@ -86,6 +86,7 @@ ADS_COLS = {
     "spend":       ["spend", "amount_spent", "valor_gasto", "gasto", "spend_(cost,_amount_spent)"],
     "impressions": ["impressions", "impressoes"],
     "clicks":      ["clicks", "cliques", "action_link_clicks"],
+    "reach":       ["reach", "alcance"],
 }
 LEADS_COLS = {
     "date":     ["data_padrão", "submitted_at", "date", "data"],
@@ -260,7 +261,7 @@ def build_dashboard_data(
 
     # Parse + clean ads
     ads_df = _parse_dates(ads_df, a["date"])
-    ads_df = _to_numeric(ads_df, [a["spend"], a["impressions"], a["clicks"]])
+    ads_df = _to_numeric(ads_df, [a["spend"], a["impressions"], a["clicks"], a["reach"]])
 
     # Date filter
     if date_start:
@@ -409,6 +410,8 @@ def build_dashboard_data(
             a["impressions"]: "sum",
             a["clicks"]:      "sum",
         }
+        if a.get("reach") and a["reach"] in ads_df.columns:
+            agg[a["reach"]] = "sum"
         if group_cols:
             return ads_df.groupby(group_cols).agg(agg).reset_index()
         return ads_df.agg(agg).to_frame().T
@@ -422,7 +425,7 @@ def build_dashboard_data(
 
     # ── Build hierarchical table ──────────────────────────────────────────────
     performance_table = []
-    total_spend = total_impressions = total_clicks = 0.0
+    total_spend = total_impressions = total_clicks = total_reach = 0.0
 
     # --- Campaign level ---
     camp_agg = _agg_ads(["_campaign_norm"])
@@ -443,6 +446,7 @@ def build_dashboard_data(
         c_spend  = float(c_row[a["spend"]])
         c_imp    = float(c_row[a["impressions"]])
         c_clicks = float(c_row[a["clicks"]])
+        c_reach  = float(c_row[a["reach"]]) if a.get("reach") and a["reach"] in c_row.index else 0.0
 
         c_leads  = len(camp_leads.get(ck, set()))
         c_appts  = len(camp_appts.get(ck, set()))
@@ -462,6 +466,7 @@ def build_dashboard_data(
         total_spend       += c_spend
         total_impressions += c_imp
         total_clicks      += c_clicks
+        total_reach       += c_reach
 
         # --- Ad Set level ---
         adset_rows = []
@@ -681,12 +686,16 @@ def build_dashboard_data(
     bottom_5 = list(reversed(scored[-5:])) if len(scored) >= 5 else list(reversed(scored))
 
     # ── Global KPIs ──────────────────────────────────────────────────────────
-    overall_cpl  = safe_div(total_spend, total_leads)
-    overall_cac  = safe_div(total_spend, total_sales)
-    overall_roas = safe_div(total_revenue_val, total_spend)
-    overall_ctr  = safe_div(total_clicks, total_impressions) * 100
-    lead_to_appt = safe_div(total_appts, total_leads) * 100
-    appt_to_sale = safe_div(total_sales, total_appts) * 100
+    overall_cpl       = safe_div(total_spend, total_leads)
+    overall_cac       = safe_div(total_spend, total_sales)
+    overall_roas      = safe_div(total_revenue_val, total_spend)
+    overall_ctr       = safe_div(total_clicks, total_impressions) * 100
+    lead_to_appt      = safe_div(total_appts, total_leads) * 100
+    appt_to_sale      = safe_div(total_sales, total_appts) * 100
+    overall_cpm       = safe_div(total_spend, total_impressions) * 1000
+    overall_frequency = safe_div(total_impressions, total_reach)
+    overall_connect_rate = safe_div(total_clicks, total_reach) * 100
+    overall_page_cvr  = safe_div(total_leads, total_clicks) * 100
 
     # Date range info
     date_min = ads_df[a["date"]].min() if a["date"] and a["date"] in ads_df.columns else None
@@ -713,6 +722,11 @@ def build_dashboard_data(
             "overall_cac":        round(overall_cac, 2),
             "lead_to_appt_rate":  round(lead_to_appt, 2),
             "appt_to_sale_rate":  round(appt_to_sale, 2),
+            "overall_cpm":        round(overall_cpm, 2),
+            "total_reach":        int(total_reach),
+            "overall_frequency":  round(overall_frequency, 2),
+            "overall_connect_rate": round(overall_connect_rate, 2),
+            "overall_page_cvr":   round(overall_page_cvr, 2),
         },
         "performance_table": performance_table,
         "campaigns_flat": campaigns_flat,
@@ -737,6 +751,8 @@ def _empty_payload() -> dict:
             "overall_cpl": 0, "overall_ctr": 0, "total_leads": 0,
             "total_appointments": 0, "total_sales": 0,
             "overall_cac": 0, "lead_to_appt_rate": 0, "appt_to_sale_rate": 0,
+            "overall_cpm": 0, "total_reach": 0, "overall_frequency": 0,
+            "overall_connect_rate": 0, "overall_page_cvr": 0,
         },
         "performance_table": [],
         "campaigns_flat": [],

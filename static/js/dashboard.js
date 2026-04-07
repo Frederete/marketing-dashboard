@@ -125,14 +125,19 @@ function fmt_num(v)    { return v == null ? "—" : Number(v).toLocaleString("pt
 
 function renderKPIs(k) {
   if (!k) return;
-  document.getElementById("val-spend").textContent    = fmt_currency(k.total_spend);
-  document.getElementById("val-revenue").textContent  = fmt_currency(k.total_revenue);
-  document.getElementById("val-roas").textContent     = fmt_x(k.overall_roas);
-  document.getElementById("val-leads").textContent    = fmt_num(k.total_leads);
-  document.getElementById("val-cpl").textContent      = fmt_currency(k.overall_cpl);
-  document.getElementById("val-appts").textContent    = fmt_num(k.total_appointments);
-  document.getElementById("val-sales").textContent    = fmt_num(k.total_sales);
-  document.getElementById("val-cac").textContent      = fmt_currency(k.overall_cac);
+  document.getElementById("val-spend").textContent       = fmt_currency(k.total_spend);
+  document.getElementById("val-revenue").textContent     = fmt_currency(k.total_revenue);
+  document.getElementById("val-roas").textContent        = fmt_x(k.overall_roas);
+  document.getElementById("val-leads").textContent       = fmt_num(k.total_leads);
+  document.getElementById("val-cpl").textContent         = fmt_currency(k.overall_cpl);
+  document.getElementById("val-appts").textContent       = fmt_num(k.total_appointments);
+  document.getElementById("val-sales").textContent       = fmt_num(k.total_sales);
+  document.getElementById("val-cac").textContent         = fmt_currency(k.overall_cac);
+  document.getElementById("val-cpm").textContent         = fmt_currency(k.overall_cpm);
+  document.getElementById("val-reach").textContent       = fmt_num(k.total_reach);
+  document.getElementById("val-frequency").textContent   = k.overall_frequency != null ? Number(k.overall_frequency).toFixed(2) + "x" : "—";
+  document.getElementById("val-connect-rate").textContent = fmt_pct(k.overall_connect_rate);
+  document.getElementById("val-page-cvr").textContent    = fmt_pct(k.overall_page_cvr);
 
   // Color ROAS card
   const roasCard = document.getElementById("kpi-roas");
