@@ -86,7 +86,7 @@ ADS_COLS = {
     "spend":       ["spend", "amount_spent", "valor_gasto", "gasto", "spend_(cost,_amount_spent)"],
     "impressions": ["impressions", "impressoes"],
     "clicks":      ["clicks", "cliques", "action_link_clicks"],
-    "reach":       ["reach", "alcance"],
+    "reach":       ["reach_(estimated)", "reach", "alcance"],
 }
 LEADS_COLS = {
     "date":     ["data_padrão", "submitted_at", "date", "data"],
