@@ -263,6 +263,12 @@ def build_dashboard_data(
     ads_df = _parse_dates(ads_df, a["date"])
     ads_df = _to_numeric(ads_df, [a["spend"], a["impressions"], a["clicks"], a["reach"]])
 
+    # Campaign filter: only campaigns with "LEADS" in the name
+    if a["campaign"] and a["campaign"] in ads_df.columns:
+        before = len(ads_df)
+        ads_df = ads_df[ads_df[a["campaign"]].str.upper().str.contains("LEADS", na=False)]
+        logger.info("ADS after LEADS campaign filter: %d (was %d)", len(ads_df), before)
+
     # Date filter
     if date_start:
         ads_df = ads_df[ads_df[a["date"]] >= pd.Timestamp(date_start)]
